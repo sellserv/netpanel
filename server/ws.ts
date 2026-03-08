@@ -40,6 +40,7 @@ export function broadcastHealthResult(result: CheckResult) {
     status: result.status,
     latency: result.latency,
     error: result.error,
+    metrics: result.metrics,
     checkedAt: result.checkedAt,
   })
 
