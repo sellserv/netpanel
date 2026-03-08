@@ -1,6 +1,7 @@
 import { useRef, useCallback, useEffect, useState } from 'react'
-import { TopologyState, ViewBox } from '../types'
+import { DeviceType, TopologyState, ViewBox } from '../types'
 import { Action } from '../state'
+import { DEVICE_CONFIGS, DEVICE_WIDTH, DEVICE_HEIGHT } from '../constants'
 import Grid from './Grid'
 
 interface CanvasProps {
@@ -25,6 +26,26 @@ export default function Canvas({ state, dispatch, children }: CanvasProps) {
     const y = viewBox.y + (clientY - rect.top) / rect.height * viewBox.height
     return { x, y }
   }, [viewBox])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    const deviceType = e.dataTransfer.getData('deviceType')
+    if (!deviceType) return
+    const pos = screenToSVG(e.clientX, e.clientY)
+    const config = DEVICE_CONFIGS.find(c => c.type === deviceType)
+    dispatch({
+      type: 'ADD_DEVICE',
+      device: {
+        id: crypto.randomUUID(),
+        type: deviceType as DeviceType,
+        label: config?.label ?? 'Device',
+        x: pos.x - DEVICE_WIDTH / 2,
+        y: pos.y - DEVICE_HEIGHT / 2,
+        ip: '',
+        notes: '',
+      },
+    })
+  }, [screenToSVG, dispatch])
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault()
@@ -100,6 +121,8 @@ export default function Canvas({ state, dispatch, children }: CanvasProps) {
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={handleDrop}
       style={{ cursor: isPanning || spaceHeld ? 'grabbing' : 'default' }}
     >
       <Grid />
