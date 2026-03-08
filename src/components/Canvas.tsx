@@ -1,17 +1,32 @@
 import { useRef, useCallback, useEffect, useState } from 'react'
-import { DeviceType, TopologyState, ViewBox } from '../types'
+import { DeviceType, TopologyState, ViewBox, PortPosition } from '../types'
 import { Action } from '../state'
 import { DEVICE_CONFIGS, DEVICE_WIDTH, DEVICE_HEIGHT } from '../constants'
 import Grid from './Grid'
 import DeviceNode from './DeviceNode'
+import ConnectionLine, { TempConnectionLine } from './ConnectionLine'
+
+interface DragConnection {
+  sourceDeviceId: string
+  sourcePort: PortPosition
+  sourceX: number
+  sourceY: number
+  mouseX: number
+  mouseY: number
+}
 
 interface CanvasProps {
   state: TopologyState
   dispatch: React.Dispatch<Action>
   children?: React.ReactNode
+  dragConn: DragConnection | null
+  onPortDragStart: (deviceId: string, port: PortPosition, x: number, y: number) => void
+  onPortDragMove: (x: number, y: number) => void
+  onPortDragEnd: (targetDeviceId: string, targetPort: PortPosition) => void
+  onPortDragCancel: () => void
 }
 
-export default function Canvas({ state, dispatch, children }: CanvasProps) {
+export default function Canvas({ state, dispatch, children, dragConn, onPortDragStart, onPortDragMove, onPortDragEnd, onPortDragCancel }: CanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [isPanning, setIsPanning] = useState(false)
   const [spaceHeld, setSpaceHeld] = useState(false)
@@ -90,12 +105,19 @@ export default function Canvas({ state, dispatch, children }: CanvasProps) {
         },
       })
     }
-  }, [isPanning, dispatch])
+    if (dragConn) {
+      const pos = screenToSVG(e.clientX, e.clientY)
+      onPortDragMove(pos.x, pos.y)
+    }
+  }, [isPanning, dispatch, dragConn, screenToSVG, onPortDragMove])
 
   const handleMouseUp = useCallback(() => {
     setIsPanning(false)
     panStart.current = null
-  }, [])
+    if (dragConn) {
+      onPortDragCancel()
+    }
+  }, [dragConn, onPortDragCancel])
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -140,6 +162,9 @@ export default function Canvas({ state, dispatch, children }: CanvasProps) {
           if (e.button === 0) dispatch({ type: 'SELECT_DEVICE', id: null })
         }}
       />
+      {state.connections.map(conn => (
+        <ConnectionLine key={conn.id} connection={conn} devices={state.devices} />
+      ))}
       {state.devices.map(device => (
         <DeviceNode
           key={device.id}
@@ -148,8 +173,17 @@ export default function Canvas({ state, dispatch, children }: CanvasProps) {
           viewBox={viewBox}
           dispatch={dispatch}
           svgRef={svgRef}
+          onPortDragStart={onPortDragStart}
+          onPortDragEnd={onPortDragEnd}
+          isDraggingConnection={!!dragConn}
         />
       ))}
+      {dragConn && (
+        <TempConnectionLine
+          from={{ x: dragConn.sourceX, y: dragConn.sourceY, port: dragConn.sourcePort }}
+          to={{ x: dragConn.mouseX, y: dragConn.mouseY }}
+        />
+      )}
       {children}
     </svg>
   )

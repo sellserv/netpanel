@@ -1,6 +1,6 @@
-import { useCallback, useRef } from 'react'
-import { Device, ViewBox } from '../types'
-import { DEVICE_WIDTH, DEVICE_HEIGHT, getDeviceConfig } from '../constants'
+import { useCallback, useRef, useState } from 'react'
+import { Device, ViewBox, PortPosition } from '../types'
+import { DEVICE_WIDTH, DEVICE_HEIGHT, PORT_RADIUS, getDeviceConfig } from '../constants'
 import { Action } from '../state'
 import DeviceIcon from './DeviceIcon'
 
@@ -10,12 +10,16 @@ interface DeviceNodeProps {
   viewBox: ViewBox
   dispatch: React.Dispatch<Action>
   svgRef: React.RefObject<SVGSVGElement | null>
+  onPortDragStart: (deviceId: string, port: PortPosition, x: number, y: number) => void
+  onPortDragEnd: (targetDeviceId: string, targetPort: PortPosition) => void
+  isDraggingConnection: boolean
 }
 
-export default function DeviceNode({ device, isSelected, viewBox, dispatch, svgRef }: DeviceNodeProps) {
+export default function DeviceNode({ device, isSelected, viewBox, dispatch, svgRef, onPortDragStart, onPortDragEnd, isDraggingConnection }: DeviceNodeProps) {
   const config = getDeviceConfig(device.type)
   const dragging = useRef(false)
   const offset = useRef({ x: 0, y: 0 })
+  const [hovered, setHovered] = useState(false)
 
   const screenToSVG = useCallback((clientX: number, clientY: number) => {
     const svg = svgRef.current
@@ -51,12 +55,28 @@ export default function DeviceNode({ device, isSelected, viewBox, dispatch, svgR
     window.addEventListener('mouseup', handleUp)
   }, [device.id, device.x, device.y, screenToSVG, dispatch])
 
+  const getPortPos = (port: PortPosition) => {
+    const cx = device.x + DEVICE_WIDTH / 2
+    const cy = device.y + DEVICE_HEIGHT / 2
+    switch (port) {
+      case 'top': return { x: cx, y: device.y }
+      case 'bottom': return { x: cx, y: device.y + DEVICE_HEIGHT }
+      case 'left': return { x: device.x, y: cy }
+      case 'right': return { x: device.x + DEVICE_WIDTH, y: cy }
+    }
+  }
+
   const iconSize = 28
   const iconX = device.x + (DEVICE_WIDTH - iconSize) / 2
   const iconY = device.y + 12
 
   return (
-    <g onMouseDown={handleMouseDown} style={{ cursor: 'pointer' }}>
+    <g
+      onMouseDown={handleMouseDown}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{ cursor: 'pointer' }}
+    >
       <rect
         x={device.x}
         y={device.y}
@@ -84,6 +104,29 @@ export default function DeviceNode({ device, isSelected, viewBox, dispatch, svgR
       >
         {device.label}
       </text>
+      {(hovered || isDraggingConnection) && (['top', 'right', 'bottom', 'left'] as PortPosition[]).map(port => {
+        const pos = getPortPos(port)
+        return (
+          <circle
+            key={port}
+            cx={pos.x}
+            cy={pos.y}
+            r={PORT_RADIUS}
+            fill="#3f3f46"
+            stroke={config.color}
+            strokeWidth={1.5}
+            style={{ cursor: 'crosshair' }}
+            onMouseDown={(e) => {
+              e.stopPropagation()
+              onPortDragStart(device.id, port, pos.x, pos.y)
+            }}
+            onMouseUp={(e) => {
+              e.stopPropagation()
+              onPortDragEnd(device.id, port)
+            }}
+          />
+        )
+      })}
     </g>
   )
 }
