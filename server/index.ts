@@ -6,6 +6,8 @@ import crypto from 'crypto'
 import { createServer } from 'http'
 import { setupWebSocket, broadcastHealthResult } from './ws.js'
 import { setResultCallback, syncChecks, stopAllChecksForTopology } from './monitor.js'
+import { discoverVms, vmAction } from './proxmox.js'
+import { setupSshWebSocket } from './ssh.js'
 import {
   listTopologies,
   getTopology,
@@ -149,9 +151,16 @@ app.get('/api/topologies/:id/health', (req: Request, res: Response) => {
     status: r.status,
     latency: r.latency,
     error: r.error,
+    metrics: r.metrics ? JSON.parse(r.metrics) : undefined,
     checkedAt: r.checked_at,
   })))
 })
+
+// Proxmox VM discovery
+app.get('/api/proxmox/vms', discoverVms)
+
+// Proxmox VM power actions
+app.post('/api/proxmox/vms/:action', vmAction)
 
 // Static files (production)
 const distPath = path.join(__dirname, '..', 'dist')
@@ -162,6 +171,7 @@ app.get('{*path}', (_req: Request, res: Response) => {
 
 const server = createServer(app)
 setupWebSocket(server)
+setupSshWebSocket(server)
 setResultCallback(broadcastHealthResult)
 
 server.listen(PORT, () => {
