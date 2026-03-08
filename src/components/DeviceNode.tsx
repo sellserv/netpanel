@@ -13,9 +13,10 @@ interface DeviceNodeProps {
   onPortDragStart: (deviceId: string, port: PortPosition, x: number, y: number) => void
   onPortDragEnd: (targetDeviceId: string, targetPort: PortPosition) => void
   isDraggingConnection: boolean
+  healthStatus?: 'up' | 'down' | 'unknown'
 }
 
-export default function DeviceNode({ device, isSelected, viewBox, dispatch, svgRef, onPortDragStart, onPortDragEnd, isDraggingConnection }: DeviceNodeProps) {
+export default function DeviceNode({ device, isSelected, viewBox, dispatch, svgRef, onPortDragStart, onPortDragEnd, isDraggingConnection, healthStatus }: DeviceNodeProps) {
   const config = getDeviceConfig(device.type)
   const dragging = useRef(false)
   const offset = useRef({ x: 0, y: 0 })
@@ -115,6 +116,16 @@ export default function DeviceNode({ device, isSelected, viewBox, dispatch, svgR
         >
           {device.ip}
         </text>
+      )}
+      {healthStatus && (
+        <circle
+          cx={device.x + DEVICE_WIDTH - 6}
+          cy={device.y + 6}
+          r={5}
+          fill={healthStatus === 'up' ? '#22c55e' : healthStatus === 'down' ? '#ef4444' : '#71717a'}
+          stroke="#18181b"
+          strokeWidth={1.5}
+        />
       )}
       {(hovered || isDraggingConnection) && (['top', 'right', 'bottom', 'left'] as PortPosition[]).map(port => {
         const pos = getPortPos(port)
