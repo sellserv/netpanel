@@ -37,7 +37,7 @@ export default function DeviceNode({ device, isSelected, viewBox, dispatch, svgR
     dragging.current = true
     const pos = screenToSVG(e.clientX, e.clientY)
     offset.current = { x: pos.x - device.x, y: pos.y - device.y }
-    dispatch({ type: 'SELECT_DEVICE', id: device.id })
+    dispatch({ type: 'SELECT_DEVICE', id: device.id, shift: e.shiftKey })
 
     const handleMove = (me: MouseEvent) => {
       if (!dragging.current) return
