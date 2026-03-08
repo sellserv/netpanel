@@ -111,7 +111,7 @@ export async function vmAction(req: Request, res: Response) {
       return
     }
 
-    const json = await result.json()
+    const json = await result.json() as { data?: string }
     res.json({ ok: true, upid: json.data })
   } catch (err) {
     res.status(500).json({ error: (err as Error).message })
