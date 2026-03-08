@@ -5,7 +5,7 @@ import { DEFAULT_VIEWBOX } from './constants'
 type Action =
   | { type: 'ADD_DEVICE'; device: Device }
   | { type: 'MOVE_DEVICE'; id: string; x: number; y: number }
-  | { type: 'UPDATE_DEVICE'; id: string; changes: Partial<Pick<Device, 'label' | 'ip' | 'notes' | 'type'>> }
+  | { type: 'UPDATE_DEVICE'; id: string; changes: Partial<Pick<Device, 'label' | 'ip' | 'notes' | 'type' | 'healthCheck'>> }
   | { type: 'DELETE_DEVICE'; id: string }
   | { type: 'ADD_CONNECTION'; connection: import('./types').Connection }
   | { type: 'DELETE_CONNECTION'; id: string }

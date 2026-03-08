@@ -22,6 +22,7 @@ export interface Device {
   y: number
   ip: string
   notes: string
+  healthCheck?: HealthCheck
 }
 
 export interface Connection {
@@ -66,4 +67,20 @@ export interface DeviceTypeConfig {
   label: string
   icon: string
   color: string
+}
+
+export type HealthCheckType = 'http' | 'tcp' | 'ping'
+
+export interface HealthCheck {
+  type: HealthCheckType
+  target?: string
+  interval: number  // seconds: 30, 60, 300, 600
+}
+
+export interface HealthStatus {
+  deviceId: string
+  status: 'up' | 'down' | 'unknown'
+  latency?: number
+  error?: string
+  checkedAt: string
 }

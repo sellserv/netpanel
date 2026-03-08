@@ -9,7 +9,7 @@ interface ConfigPanelProps {
 }
 
 export default function ConfigPanel({ device, dispatch }: ConfigPanelProps) {
-  const update = (changes: Partial<Pick<Device, 'label' | 'ip' | 'notes' | 'type'>>) => {
+  const update = (changes: Partial<Pick<Device, 'label' | 'ip' | 'notes' | 'type' | 'healthCheck'>>) => {
     dispatch({ type: 'UPDATE_DEVICE', id: device.id, changes })
   }
 
