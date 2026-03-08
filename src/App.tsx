@@ -22,7 +22,8 @@ export default function App() {
   const { statuses: healthStatuses } = useHealthStatus(currentTopologyId)
   const handleExport = useCallback(() => {
     if (!currentTopologyId) return
-    window.open(`/api/topologies/${currentTopologyId}/export`, '_blank')
+    const base = window.location.pathname.replace(/\/[^/]*$/, '/')
+    window.open(`${base}api/topologies/${currentTopologyId}/export`, '_blank')
   }, [currentTopologyId])
 
   const handleImport = useCallback(() => {
@@ -129,7 +130,7 @@ export default function App() {
         onPortDragCancel={onPortDragCancel}
         healthStatuses={healthStatuses}
       />
-      {selectedDevice && <ConfigPanel device={selectedDevice} dispatch={dispatch} />}
+      {selectedDevice && <ConfigPanel device={selectedDevice} dispatch={dispatch} healthStatus={healthStatuses.get(selectedDevice.id)} />}
       {selectedZone && <ZoneConfigPanel zone={selectedZone} dispatch={dispatch} />}
     </div>
   )
