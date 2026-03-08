@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTopology } from './state'
+import { useHealthStatus } from './useHealthStatus'
 import type { PortPosition } from './types'
 import { generateId } from './constants'
 import Canvas from './components/Canvas'
@@ -18,6 +19,7 @@ interface DragConnection {
 
 export default function App() {
   const { state, dispatch, currentTopologyId, topologies, loading, switchTopology, createNewTopology, deleteCurrentTopology, refreshTopologies } = useTopology()
+  const { statuses: healthStatuses } = useHealthStatus(currentTopologyId)
   const handleExport = useCallback(() => {
     if (!currentTopologyId) return
     window.open(`/api/topologies/${currentTopologyId}/export`, '_blank')
@@ -125,6 +127,7 @@ export default function App() {
         onPortDragMove={onPortDragMove}
         onPortDragEnd={onPortDragEnd}
         onPortDragCancel={onPortDragCancel}
+        healthStatuses={healthStatuses}
       />
       {selectedDevice && <ConfigPanel device={selectedDevice} dispatch={dispatch} />}
       {selectedZone && <ZoneConfigPanel zone={selectedZone} dispatch={dispatch} />}

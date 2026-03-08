@@ -1,5 +1,5 @@
 import { useRef, useCallback, useEffect, useState } from 'react'
-import type { DeviceType, TopologyState, ViewBox, PortPosition } from '../types'
+import type { DeviceType, TopologyState, ViewBox, PortPosition, HealthStatus } from '../types'
 import type { Action } from '../state'
 import { DEVICE_CONFIGS, DEVICE_WIDTH, DEVICE_HEIGHT, generateId } from '../constants'
 import Grid from './Grid'
@@ -32,9 +32,10 @@ interface CanvasProps {
   onPortDragMove: (x: number, y: number) => void
   onPortDragEnd: (targetDeviceId: string, targetPort: PortPosition) => void
   onPortDragCancel: () => void
+  healthStatuses?: Map<string, HealthStatus>
 }
 
-export default function Canvas({ state, dispatch, children, dragConn, onPortDragStart, onPortDragMove, onPortDragEnd, onPortDragCancel }: CanvasProps) {
+export default function Canvas({ state, dispatch, children, dragConn, onPortDragStart, onPortDragMove, onPortDragEnd, onPortDragCancel, healthStatuses }: CanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [isPanning, setIsPanning] = useState(false)
   const [spaceHeld, setSpaceHeld] = useState(false)
@@ -250,6 +251,7 @@ export default function Canvas({ state, dispatch, children, dragConn, onPortDrag
           onPortDragStart={onPortDragStart}
           onPortDragEnd={onPortDragEnd}
           isDraggingConnection={!!dragConn}
+          healthStatus={healthStatuses?.get(device.id)?.status}
         />
       ))}
       {dragConn && (
