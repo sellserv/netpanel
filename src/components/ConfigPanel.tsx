@@ -1,4 +1,4 @@
-import type { Device } from '../types'
+import type { Device, HealthCheck } from '../types'
 import { DEVICE_CONFIGS } from '../constants'
 import type { Action } from '../state'
 import { X } from 'lucide-react'
@@ -71,6 +71,91 @@ export default function ConfigPanel({ device, dispatch }: ConfigPanelProps) {
             placeholder="Additional notes..."
             className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-500 resize-none"
           />
+        </div>
+
+        <div className="pt-2 border-t border-zinc-700/50">
+          <label className="block text-xs text-zinc-500 mb-2">Health Check</label>
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!device.healthCheck}
+                onChange={e => {
+                  if (e.target.checked) {
+                    update({
+                      healthCheck: { type: 'ping', interval: 60 },
+                    })
+                  } else {
+                    update({ healthCheck: undefined })
+                  }
+                }}
+                className="rounded bg-zinc-900 border-zinc-600"
+              />
+              Enable monitoring
+            </label>
+
+            {device.healthCheck && (
+              <>
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">Check Type</label>
+                  <select
+                    value={device.healthCheck.type}
+                    onChange={e =>
+                      update({
+                        healthCheck: { ...device.healthCheck!, type: e.target.value as HealthCheck['type'] },
+                      })
+                    }
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-sm text-zinc-200 focus:outline-none focus:border-zinc-500"
+                  >
+                    <option value="ping">Ping</option>
+                    <option value="tcp">TCP Port</option>
+                    <option value="http">HTTP</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">
+                    {device.healthCheck.type === 'http' ? 'URL' : device.healthCheck.type === 'tcp' ? 'Host:Port' : 'Host (blank = use IP)'}
+                  </label>
+                  <input
+                    type="text"
+                    value={device.healthCheck.target || ''}
+                    onChange={e =>
+                      update({
+                        healthCheck: { ...device.healthCheck!, target: e.target.value || undefined },
+                      })
+                    }
+                    placeholder={
+                      device.healthCheck.type === 'http'
+                        ? 'https://example.com'
+                        : device.healthCheck.type === 'tcp'
+                        ? '192.168.1.1:443'
+                        : device.ip || 'IP address'
+                    }
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">Interval</label>
+                  <select
+                    value={device.healthCheck.interval}
+                    onChange={e =>
+                      update({
+                        healthCheck: { ...device.healthCheck!, interval: parseInt(e.target.value, 10) },
+                      })
+                    }
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-sm text-zinc-200 focus:outline-none focus:border-zinc-500"
+                  >
+                    <option value="30">Every 30 seconds</option>
+                    <option value="60">Every 1 minute</option>
+                    <option value="300">Every 5 minutes</option>
+                    <option value="600">Every 10 minutes</option>
+                  </select>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="pt-2 border-t border-zinc-700/50">
