@@ -1,8 +1,6 @@
-import { useReducer, useEffect, useRef } from 'react'
+import { useReducer, useEffect, useRef, useState, useCallback } from 'react'
 import type { TopologyState, Device, Zone, ViewBox } from './types'
 import { DEFAULT_VIEWBOX } from './constants'
-
-const STORAGE_KEY = 'network-topology'
 
 type Action =
   | { type: 'ADD_DEVICE'; device: Device }
@@ -155,37 +153,109 @@ function reducer(state: TopologyState, action: Action): TopologyState {
   }
 }
 
-function loadState(): TopologyState {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      return {
-        ...initialState,
-        ...parsed,
-        zones: parsed.zones ?? [],
-        selectedIds: [],
-        selectionType: null,
-      }
-    }
-  } catch {}
-  return initialState
-}
-
 export function useTopology() {
-  const [state, dispatch] = useReducer(reducer, null, loadState)
-  const saveTimeout = useRef<ReturnType<typeof setTimeout>>()
+  const [state, dispatch] = useReducer(reducer, initialState)
+  const [currentTopologyId, setCurrentTopologyId] = useState<string | null>(null)
+  const [topologies, setTopologies] = useState<{ id: string; name: string }[]>([])
+  const [loading, setLoading] = useState(true)
+  const saveTimeout = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const skipSave = useRef(true)
 
+  // Load topology list on mount
   useEffect(() => {
+    import('./api').then(api => {
+      api.listTopologies().then(list => {
+        setTopologies(list)
+        if (list.length > 0) {
+          const first = list[0]
+          setCurrentTopologyId(first.id)
+          api.loadTopology(first.id).then(full => {
+            if (full.state) {
+              dispatch({ type: 'LOAD_STATE', state: { ...initialState, ...full.state, selectedIds: [], selectionType: null } })
+            }
+            setLoading(false)
+            setTimeout(() => { skipSave.current = false }, 500)
+          })
+        } else {
+          api.createTopology('Untitled').then(created => {
+            setTopologies([created])
+            setCurrentTopologyId(created.id)
+            setLoading(false)
+            setTimeout(() => { skipSave.current = false }, 500)
+          })
+        }
+      })
+    })
+  }, [])
+
+  // Auto-save on state change (debounced)
+  useEffect(() => {
+    if (skipSave.current || !currentTopologyId) return
     clearTimeout(saveTimeout.current)
     saveTimeout.current = setTimeout(() => {
       const { selectedIds, selectionType, ...rest } = state
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(rest))
-    }, 300)
+      import('./api').then(api => {
+        api.saveTopology(currentTopologyId, rest)
+      })
+    }, 500)
     return () => clearTimeout(saveTimeout.current)
-  }, [state])
+  }, [state, currentTopologyId])
 
-  return { state, dispatch }
+  const switchTopology = useCallback(async (id: string) => {
+    skipSave.current = true
+    const api = await import('./api')
+    const full = await api.loadTopology(id)
+    if (full.state) {
+      dispatch({ type: 'LOAD_STATE', state: { ...initialState, ...full.state, selectedIds: [], selectionType: null } })
+    }
+    setCurrentTopologyId(id)
+    setTimeout(() => { skipSave.current = false }, 500)
+  }, [])
+
+  const createNewTopology = useCallback(async (name: string) => {
+    skipSave.current = true
+    const api = await import('./api')
+    const created = await api.createTopology(name)
+    setTopologies(prev => [created, ...prev])
+    setCurrentTopologyId(created.id)
+    dispatch({ type: 'LOAD_STATE', state: initialState })
+    setTimeout(() => { skipSave.current = false }, 500)
+  }, [])
+
+  const deleteCurrentTopology = useCallback(async () => {
+    if (!currentTopologyId) return
+    const api = await import('./api')
+    await api.deleteTopology(currentTopologyId)
+    const remaining = topologies.filter(t => t.id !== currentTopologyId)
+    setTopologies(remaining)
+    if (remaining.length > 0) {
+      await switchTopology(remaining[0].id)
+    } else {
+      const created = await api.createTopology('Untitled')
+      setTopologies([created])
+      setCurrentTopologyId(created.id)
+      dispatch({ type: 'LOAD_STATE', state: initialState })
+      setTimeout(() => { skipSave.current = false }, 500)
+    }
+  }, [currentTopologyId, topologies, switchTopology])
+
+  const refreshTopologies = useCallback(async () => {
+    const api = await import('./api')
+    const list = await api.listTopologies()
+    setTopologies(list)
+  }, [])
+
+  return {
+    state,
+    dispatch,
+    currentTopologyId,
+    topologies,
+    loading,
+    switchTopology,
+    createNewTopology,
+    deleteCurrentTopology,
+    refreshTopologies,
+  }
 }
 
 export type { Action }
