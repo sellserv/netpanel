@@ -2,7 +2,7 @@ import { useState } from 'react'
 import * as Icons from 'lucide-react'
 import type { DeviceType } from '../types'
 import { DEVICE_CONFIGS } from '../constants'
-import { ChevronLeft, ChevronRight, Plus, Trash2, Download, Upload } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Trash2, Download, Upload, Search } from 'lucide-react'
 
 interface SidebarProps {
   onDragStart: (type: DeviceType) => void
@@ -13,6 +13,7 @@ interface SidebarProps {
   onDeleteTopology: () => void
   onExport: () => void
   onImport: () => void
+  onDiscoverVms: () => void
 }
 
 export default function Sidebar({
@@ -24,6 +25,7 @@ export default function Sidebar({
   onDeleteTopology,
   onExport,
   onImport,
+  onDiscoverVms,
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
 
@@ -91,6 +93,13 @@ export default function Sidebar({
                 className="p-1 rounded hover:bg-zinc-600 text-zinc-300"
               >
                 <Upload size={16} />
+              </button>
+              <button
+                title="Discover Proxmox VMs"
+                onClick={onDiscoverVms}
+                className="p-1 rounded hover:bg-zinc-600 text-zinc-300"
+              >
+                <Search size={16} />
               </button>
             </div>
           </div>
