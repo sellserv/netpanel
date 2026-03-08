@@ -1,12 +1,18 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTopology } from './state'
 import { useHealthStatus } from './useHealthStatus'
-import type { PortPosition } from './types'
+import type { PortPosition, Device } from './types'
 import { generateId } from './constants'
+import { proxmoxVmAction } from './api'
 import Canvas from './components/Canvas'
 import Sidebar from './components/Sidebar'
 import ConfigPanel from './components/ConfigPanel'
 import ZoneConfigPanel from './components/ZoneConfigPanel'
+import SshDrawer from './components/SshDrawer'
+import SshConnectDialog from './components/SshConnectDialog'
+import type { SshConnectParams } from './components/SshConnectDialog'
+import VmDiscoveryModal from './components/VmDiscoveryModal'
+import ConfirmModal from './components/ConfirmModal'
 
 interface DragConnection {
   sourceDeviceId: string
@@ -20,6 +26,13 @@ interface DragConnection {
 export default function App() {
   const { state, dispatch, currentTopologyId, topologies, loading, switchTopology, createNewTopology, deleteCurrentTopology, refreshTopologies } = useTopology()
   const { statuses: healthStatuses } = useHealthStatus(currentTopologyId)
+
+  const [dragConn, setDragConn] = useState<DragConnection | null>(null)
+  const [sshTabs, setSshTabs] = useState<Array<{ id: string; label: string; params: SshConnectParams }>>([])
+  const [sshConnectTarget, setSshConnectTarget] = useState<{ host: string; label: string } | null>(null)
+  const [showVmDiscovery, setShowVmDiscovery] = useState(false)
+  const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; confirmLabel: string; onConfirm: () => void } | null>(null)
+
   const handleExport = useCallback(() => {
     if (!currentTopologyId) return
     const base = window.location.pathname.replace(/\/[^/]*$/, '/')
@@ -43,7 +56,89 @@ export default function App() {
     input.click()
   }, [switchTopology, refreshTopologies])
 
-  const [dragConn, setDragConn] = useState<DragConnection | null>(null)
+  const handleSshConnect = useCallback((host: string, label: string) => {
+    setSshConnectTarget({ host, label })
+  }, [])
+
+  const handleSshConnectSubmit = useCallback((params: SshConnectParams) => {
+    setSshTabs(prev => [...prev, { id: generateId(), label: params.label, params }])
+    setSshConnectTarget(null)
+  }, [])
+
+  const handleCloseSshTab = useCallback((id: string) => {
+    setSshTabs(prev => prev.filter(t => t.id !== id))
+  }, [])
+
+  const handleCloseAllSsh = useCallback(() => {
+    setSshTabs([])
+  }, [])
+
+  const handleVmAction = useCallback((action: 'start' | 'shutdown' | 'reboot', device: Device) => {
+    if (!device.proxmoxVm) return
+
+    const actionLabels = { start: 'Start', shutdown: 'Shut Down', reboot: 'Reboot' }
+    const vm = device.proxmoxVm
+
+    const hostDevice = state.devices.find(d => d.ip === vm.host && d.healthCheck?.apiPreset === 'proxmox')
+    const token = hostDevice?.healthCheck?.apiToken || device.healthCheck?.apiToken
+
+    if (!token) {
+      alert('No API token found. Configure the Proxmox host device with an API token first.')
+      return
+    }
+
+    setConfirmAction({
+      title: `${actionLabels[action]} VM`,
+      message: `Are you sure you want to ${action} "${device.label}" (VMID ${vm.vmid})?`,
+      confirmLabel: actionLabels[action],
+      onConfirm: async () => {
+        try {
+          await proxmoxVmAction(action, {
+            host: vm.host,
+            node: vm.node,
+            vmid: vm.vmid,
+            type: vm.type,
+            token,
+          })
+        } catch (err) {
+          alert(`Failed: ${(err as Error).message}`)
+        }
+        setConfirmAction(null)
+      },
+    })
+  }, [state.devices])
+
+  const handleVmDiscoveryAdd = useCallback((vms: Array<{ vmid: number; name: string; type: 'qemu' | 'lxc'; node: string; host: string; token: string }>) => {
+    const startX = state.viewBox.x + 200
+    const startY = state.viewBox.y + 200
+
+    vms.forEach((vm, i) => {
+      const device: Device = {
+        id: generateId(),
+        type: vm.type === 'lxc' ? 'container' : 'vmhost',
+        label: vm.name,
+        x: startX + (i % 5) * 120,
+        y: startY + Math.floor(i / 5) * 120,
+        ip: '',
+        notes: `Proxmox ${vm.type.toUpperCase()} - VMID ${vm.vmid}`,
+        proxmoxVm: {
+          host: vm.host,
+          node: vm.node,
+          vmid: vm.vmid,
+          type: vm.type,
+        },
+        healthCheck: {
+          type: 'api',
+          apiPreset: 'proxmox',
+          apiToken: vm.token,
+          interval: 60,
+        },
+      }
+      dispatch({ type: 'ADD_DEVICE', device })
+    })
+
+    setShowVmDiscovery(false)
+  }, [dispatch, state.viewBox])
 
   const selectedDevice = state.selectionType === 'device' && state.selectedIds.length === 1
     ? state.devices.find(d => d.id === state.selectedIds[0])
@@ -109,29 +204,69 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen w-screen bg-zinc-900 text-zinc-100 flex overflow-hidden">
-      <Sidebar
-        onDragStart={() => {}}
-        topologies={topologies}
-        currentTopologyId={currentTopologyId}
-        onSwitchTopology={switchTopology}
-        onNewTopology={createNewTopology}
-        onDeleteTopology={deleteCurrentTopology}
-        onExport={handleExport}
-        onImport={handleImport}
-      />
-      <Canvas
-        state={state}
-        dispatch={dispatch}
-        dragConn={dragConn}
-        onPortDragStart={onPortDragStart}
-        onPortDragMove={onPortDragMove}
-        onPortDragEnd={onPortDragEnd}
-        onPortDragCancel={onPortDragCancel}
-        healthStatuses={healthStatuses}
-      />
-      {selectedDevice && <ConfigPanel device={selectedDevice} dispatch={dispatch} healthStatus={healthStatuses.get(selectedDevice.id)} />}
-      {selectedZone && <ZoneConfigPanel zone={selectedZone} dispatch={dispatch} />}
+    <div className="h-screen w-screen bg-zinc-900 text-zinc-100 flex flex-col overflow-hidden">
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar
+          onDragStart={() => {}}
+          topologies={topologies}
+          currentTopologyId={currentTopologyId}
+          onSwitchTopology={switchTopology}
+          onNewTopology={createNewTopology}
+          onDeleteTopology={deleteCurrentTopology}
+          onExport={handleExport}
+          onImport={handleImport}
+          onDiscoverVms={() => setShowVmDiscovery(true)}
+        />
+        <Canvas
+          state={state}
+          dispatch={dispatch}
+          dragConn={dragConn}
+          onPortDragStart={onPortDragStart}
+          onPortDragMove={onPortDragMove}
+          onPortDragEnd={onPortDragEnd}
+          onPortDragCancel={onPortDragCancel}
+          healthStatuses={healthStatuses}
+        />
+        {selectedDevice && (
+          <ConfigPanel
+            device={selectedDevice}
+            dispatch={dispatch}
+            healthStatus={healthStatuses.get(selectedDevice.id)}
+            allDevices={state.devices}
+            onSshConnect={handleSshConnect}
+            onVmAction={handleVmAction}
+          />
+        )}
+        {selectedZone && <ZoneConfigPanel zone={selectedZone} dispatch={dispatch} />}
+      </div>
+
+      <SshDrawer tabs={sshTabs} onCloseTab={handleCloseSshTab} onCloseAll={handleCloseAllSsh} />
+
+      {sshConnectTarget && (
+        <SshConnectDialog
+          defaultHost={sshConnectTarget.host}
+          defaultLabel={sshConnectTarget.label}
+          onConnect={handleSshConnectSubmit}
+          onClose={() => setSshConnectTarget(null)}
+        />
+      )}
+
+      {showVmDiscovery && (
+        <VmDiscoveryModal
+          onAdd={handleVmDiscoveryAdd}
+          onClose={() => setShowVmDiscovery(false)}
+        />
+      )}
+
+      {confirmAction && (
+        <ConfirmModal
+          title={confirmAction.title}
+          message={confirmAction.message}
+          confirmLabel={confirmAction.confirmLabel}
+          onConfirm={confirmAction.onConfirm}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
     </div>
   )
 }
