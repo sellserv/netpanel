@@ -4,6 +4,7 @@ import type { Action } from '../state'
 import { DEVICE_CONFIGS, DEVICE_WIDTH, DEVICE_HEIGHT } from '../constants'
 import Grid from './Grid'
 import DeviceNode from './DeviceNode'
+import ZoneNode from './ZoneNode'
 import ConnectionLine, { TempConnectionLine } from './ConnectionLine'
 
 interface DragConnection {
@@ -13,6 +14,13 @@ interface DragConnection {
   sourceY: number
   mouseX: number
   mouseY: number
+}
+
+interface SelectionRect {
+  startX: number
+  startY: number
+  currentX: number
+  currentY: number
 }
 
 interface CanvasProps {
@@ -31,6 +39,7 @@ export default function Canvas({ state, dispatch, children, dragConn, onPortDrag
   const [isPanning, setIsPanning] = useState(false)
   const [spaceHeld, setSpaceHeld] = useState(false)
   const panStart = useRef<{ x: number; y: number; vb: ViewBox } | null>(null)
+  const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null)
 
   const { viewBox } = state
 
@@ -78,16 +87,26 @@ export default function Canvas({ state, dispatch, children, dragConn, onPortDrag
     dispatch({ type: 'SET_VIEWBOX', viewBox: { x: newX, y: newY, width: newWidth, height: newHeight } })
   }, [viewBox, dispatch])
 
+  const startSelectionRect = useCallback((e: React.MouseEvent) => {
+    dispatch({ type: 'CLEAR_SELECTION' })
+    const pos = screenToSVG(e.clientX, e.clientY)
+    setSelectionRect({ startX: pos.x, startY: pos.y, currentX: pos.x, currentY: pos.y })
+  }, [dispatch, screenToSVG])
+
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button === 0 && !spaceHeld && (e.target === svgRef.current || (e.target as SVGElement).closest('rect[fill="url(#grid)"]'))) {
-      dispatch({ type: 'SELECT_DEVICE', id: null })
+    const isGridClick = e.button === 0 && !spaceHeld && (e.target === svgRef.current || (e.target as SVGElement).closest('rect[fill="url(#grid)"]'))
+
+    if (isGridClick) {
+      startSelectionRect(e)
+      return
     }
+
     if (e.button === 1 || (e.button === 0 && spaceHeld)) {
       e.preventDefault()
       setIsPanning(true)
       panStart.current = { x: e.clientX, y: e.clientY, vb: { ...viewBox } }
     }
-  }, [spaceHeld, viewBox, dispatch])
+  }, [spaceHeld, viewBox, startSelectionRect])
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (isPanning && panStart.current) {
@@ -109,7 +128,11 @@ export default function Canvas({ state, dispatch, children, dragConn, onPortDrag
       const pos = screenToSVG(e.clientX, e.clientY)
       onPortDragMove(pos.x, pos.y)
     }
-  }, [isPanning, dispatch, dragConn, screenToSVG, onPortDragMove])
+    if (selectionRect) {
+      const pos = screenToSVG(e.clientX, e.clientY)
+      setSelectionRect(prev => prev ? { ...prev, currentX: pos.x, currentY: pos.y } : null)
+    }
+  }, [isPanning, dispatch, dragConn, screenToSVG, onPortDragMove, selectionRect])
 
   const handleMouseUp = useCallback(() => {
     setIsPanning(false)
@@ -117,7 +140,38 @@ export default function Canvas({ state, dispatch, children, dragConn, onPortDrag
     if (dragConn) {
       onPortDragCancel()
     }
-  }, [dragConn, onPortDragCancel])
+    if (selectionRect) {
+      const rx = Math.min(selectionRect.startX, selectionRect.currentX)
+      const ry = Math.min(selectionRect.startY, selectionRect.currentY)
+      const rw = Math.abs(selectionRect.currentX - selectionRect.startX)
+      const rh = Math.abs(selectionRect.currentY - selectionRect.startY)
+
+      if (rw > 20 && rh > 20) {
+        const enclosed = state.devices.filter(d => {
+          const dcx = d.x + DEVICE_WIDTH / 2
+          const dcy = d.y + DEVICE_HEIGHT / 2
+          return dcx >= rx && dcx <= rx + rw && dcy >= ry && dcy <= ry + rh
+        })
+
+        const padding = 20
+        const zoneId = crypto.randomUUID()
+        const zone = {
+          id: zoneId,
+          label: 'New Zone',
+          color: '#3b82f6',
+          x: rx - padding,
+          y: ry - padding,
+          width: rw + padding * 2,
+          height: rh + padding * 2,
+          deviceIds: enclosed.map(d => d.id),
+        }
+        dispatch({ type: 'ADD_ZONE', zone })
+        dispatch({ type: 'SELECT_ZONE', id: zoneId })
+      }
+
+      setSelectionRect(null)
+    }
+  }, [dragConn, onPortDragCancel, selectionRect, state.devices, dispatch])
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -137,6 +191,13 @@ export default function Canvas({ state, dispatch, children, dragConn, onPortDrag
     }
   }, [])
 
+  const selRect = selectionRect ? {
+    x: Math.min(selectionRect.startX, selectionRect.currentX),
+    y: Math.min(selectionRect.startY, selectionRect.currentY),
+    width: Math.abs(selectionRect.currentX - selectionRect.startX),
+    height: Math.abs(selectionRect.currentY - selectionRect.startY),
+  } : null
+
   return (
     <svg
       ref={svgRef}
@@ -150,7 +211,7 @@ export default function Canvas({ state, dispatch, children, dragConn, onPortDrag
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDrop}
       onContextMenu={(e) => e.preventDefault()}
-      style={{ cursor: isPanning || spaceHeld ? 'grabbing' : 'default' }}
+      style={{ cursor: isPanning || spaceHeld ? 'grabbing' : selectionRect ? 'crosshair' : 'default' }}
     >
       <Grid />
       <rect
@@ -160,9 +221,21 @@ export default function Canvas({ state, dispatch, children, dragConn, onPortDrag
         height={viewBox.height * 3}
         fill="url(#grid)"
         onMouseDown={(e) => {
-          if (e.button === 0) dispatch({ type: 'SELECT_DEVICE', id: null })
+          if (e.button === 0 && !spaceHeld) {
+            startSelectionRect(e)
+          }
         }}
       />
+      {state.zones.map(zone => (
+        <ZoneNode
+          key={zone.id}
+          zone={zone}
+          isSelected={state.selectionType === 'zone' && state.selectedIds.includes(zone.id)}
+          viewBox={viewBox}
+          dispatch={dispatch}
+          svgRef={svgRef}
+        />
+      ))}
       {state.connections.map(conn => (
         <ConnectionLine key={conn.id} connection={conn} devices={state.devices} />
       ))}
@@ -170,7 +243,7 @@ export default function Canvas({ state, dispatch, children, dragConn, onPortDrag
         <DeviceNode
           key={device.id}
           device={device}
-          isSelected={device.id === state.selectedDeviceId}
+          isSelected={state.selectionType === 'device' && state.selectedIds.includes(device.id)}
           viewBox={viewBox}
           dispatch={dispatch}
           svgRef={svgRef}
@@ -183,6 +256,19 @@ export default function Canvas({ state, dispatch, children, dragConn, onPortDrag
         <TempConnectionLine
           from={{ x: dragConn.sourceX, y: dragConn.sourceY, port: dragConn.sourcePort }}
           to={{ x: dragConn.mouseX, y: dragConn.mouseY }}
+        />
+      )}
+      {selRect && (
+        <rect
+          x={selRect.x}
+          y={selRect.y}
+          width={selRect.width}
+          height={selRect.height}
+          fill="rgba(59,130,246,0.08)"
+          stroke="#3b82f6"
+          strokeWidth={1}
+          strokeDasharray="4 2"
+          style={{ pointerEvents: 'none' }}
         />
       )}
       {children}
