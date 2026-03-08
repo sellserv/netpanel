@@ -14,7 +14,12 @@ export interface TopologyFull extends TopologySummary {
   } | null
 }
 
-const BASE = '/api'
+function getBase() {
+  const path = window.location.pathname.replace(/\/[^/]*$/, '/')
+  return `${path}api`
+}
+
+const BASE = getBase()
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
@@ -74,4 +79,30 @@ export async function importTopology(data: { name: string; state: object }): Pro
 
 export async function fetchHealthResults(topologyId: string): Promise<import('./types').HealthStatus[]> {
   return request(`/topologies/${topologyId}/health`)
+}
+
+export interface ProxmoxVm {
+  vmid: number
+  name: string
+  type: 'qemu' | 'lxc'
+  status: string
+  node: string
+  cpu?: number
+  maxmem?: number
+  mem?: number
+  uptime?: number
+}
+
+export async function discoverProxmoxVms(host: string, token: string): Promise<ProxmoxVm[]> {
+  return request(`/proxmox/vms?host=${encodeURIComponent(host)}&token=${encodeURIComponent(token)}`)
+}
+
+export async function proxmoxVmAction(
+  action: 'start' | 'shutdown' | 'reboot',
+  params: { host: string; node: string; vmid: number; type: string; token: string }
+): Promise<{ ok: boolean; upid?: string }> {
+  return request(`/proxmox/vms/${action}`, {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
 }

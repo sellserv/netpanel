@@ -8,7 +8,8 @@ export function useHealthStatus(topologyId: string | null) {
   // Fetch initial health results via REST
   useEffect(() => {
     if (!topologyId) return
-    fetch(`/api/topologies/${topologyId}/health`)
+    const base = window.location.pathname.replace(/\/[^/]*$/, '/')
+    fetch(`${base}api/topologies/${topologyId}/health`)
       .then(res => res.json())
       .then((results: HealthStatus[]) => {
         const map = new Map<string, HealthStatus>()
@@ -25,7 +26,8 @@ export function useHealthStatus(topologyId: string | null) {
     if (!topologyId) return
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`)
+    const base = window.location.pathname.replace(/\/[^/]*$/, '/')
+    const ws = new WebSocket(`${protocol}//${window.location.host}${base}ws`)
     wsRef.current = ws
 
     ws.onopen = () => {
@@ -43,6 +45,7 @@ export function useHealthStatus(topologyId: string | null) {
               status: msg.status,
               latency: msg.latency,
               error: msg.error,
+              metrics: msg.metrics,
               checkedAt: msg.checkedAt,
             })
             return next
