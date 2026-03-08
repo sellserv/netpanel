@@ -23,6 +23,7 @@ export interface Device {
   ip: string
   notes: string
   healthCheck?: HealthCheck
+  proxmoxVm?: ProxmoxVmLink
 }
 
 export interface Connection {
@@ -69,12 +70,16 @@ export interface DeviceTypeConfig {
   color: string
 }
 
-export type HealthCheckType = 'http' | 'tcp' | 'ping'
+export type HealthCheckType = 'http' | 'tcp' | 'ping' | 'api'
+
+export type ApiPreset = 'proxmox' | 'truenas' | 'tailscale' | 'docker'
 
 export interface HealthCheck {
   type: HealthCheckType
   target?: string
   interval: number  // seconds: 30, 60, 300, 600
+  apiPreset?: ApiPreset
+  apiToken?: string
 }
 
 export interface HealthStatus {
@@ -83,4 +88,12 @@ export interface HealthStatus {
   latency?: number
   error?: string
   checkedAt: string
+  metrics?: Record<string, string | number | boolean>
+}
+
+export interface ProxmoxVmLink {
+  host: string
+  node: string
+  vmid: number
+  type: 'qemu' | 'lxc'
 }
