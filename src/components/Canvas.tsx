@@ -3,6 +3,7 @@ import { DeviceType, TopologyState, ViewBox } from '../types'
 import { Action } from '../state'
 import { DEVICE_CONFIGS, DEVICE_WIDTH, DEVICE_HEIGHT } from '../constants'
 import Grid from './Grid'
+import DeviceNode from './DeviceNode'
 
 interface CanvasProps {
   state: TopologyState
@@ -63,12 +64,15 @@ export default function Canvas({ state, dispatch, children }: CanvasProps) {
   }, [viewBox, dispatch])
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button === 0 && !spaceHeld && (e.target === svgRef.current || (e.target as SVGElement).closest('rect[fill="url(#grid)"]'))) {
+      dispatch({ type: 'SELECT_DEVICE', id: null })
+    }
     if (e.button === 1 || (e.button === 0 && spaceHeld)) {
       e.preventDefault()
       setIsPanning(true)
       panStart.current = { x: e.clientX, y: e.clientY, vb: { ...viewBox } }
     }
-  }, [spaceHeld, viewBox])
+  }, [spaceHeld, viewBox, dispatch])
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (isPanning && panStart.current) {
@@ -132,7 +136,20 @@ export default function Canvas({ state, dispatch, children }: CanvasProps) {
         width={viewBox.width * 3}
         height={viewBox.height * 3}
         fill="url(#grid)"
+        onMouseDown={(e) => {
+          if (e.button === 0) dispatch({ type: 'SELECT_DEVICE', id: null })
+        }}
       />
+      {state.devices.map(device => (
+        <DeviceNode
+          key={device.id}
+          device={device}
+          isSelected={device.id === state.selectedDeviceId}
+          viewBox={viewBox}
+          dispatch={dispatch}
+          svgRef={svgRef}
+        />
+      ))}
       {children}
     </svg>
   )
