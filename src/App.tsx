@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTopology } from './state'
-import { PortPosition } from './types'
+import type { PortPosition } from './types'
 import Canvas from './components/Canvas'
 import Sidebar from './components/Sidebar'
 import ConfigPanel from './components/ConfigPanel'

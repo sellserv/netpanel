@@ -1,6 +1,6 @@
 import { useRef, useCallback, useEffect, useState } from 'react'
-import { DeviceType, TopologyState, ViewBox, PortPosition } from '../types'
-import { Action } from '../state'
+import type { DeviceType, TopologyState, ViewBox, PortPosition } from '../types'
+import type { Action } from '../state'
 import { DEVICE_CONFIGS, DEVICE_WIDTH, DEVICE_HEIGHT } from '../constants'
 import Grid from './Grid'
 import DeviceNode from './DeviceNode'

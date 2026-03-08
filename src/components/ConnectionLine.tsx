@@ -1,4 +1,4 @@
-import { Device, Connection, PortPosition } from '../types'
+import type { Device, Connection, PortPosition } from '../types'
 import { DEVICE_WIDTH, DEVICE_HEIGHT } from '../constants'
 
 export const getPortPosition = (device: Device, port: PortPosition) => {

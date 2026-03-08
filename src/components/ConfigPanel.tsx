@@ -1,6 +1,6 @@
-import { Device } from '../types'
+import type { Device } from '../types'
 import { DEVICE_CONFIGS, getDeviceConfig } from '../constants'
-import { Action } from '../state'
+import type { Action } from '../state'
 import { X } from 'lucide-react'
 
 interface ConfigPanelProps {

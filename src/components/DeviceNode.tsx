@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
-import { Device, ViewBox, PortPosition } from '../types'
+import type { Device, ViewBox, PortPosition } from '../types'
 import { DEVICE_WIDTH, DEVICE_HEIGHT, PORT_RADIUS, getDeviceConfig } from '../constants'
-import { Action } from '../state'
+import type { Action } from '../state'
 import DeviceIcon from './DeviceIcon'
 
 interface DeviceNodeProps {
