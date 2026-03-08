@@ -1,5 +1,5 @@
 import type { Device } from '../types'
-import { DEVICE_CONFIGS, getDeviceConfig } from '../constants'
+import { DEVICE_CONFIGS } from '../constants'
 import type { Action } from '../state'
 import { X } from 'lucide-react'
 
@@ -9,9 +9,7 @@ interface ConfigPanelProps {
 }
 
 export default function ConfigPanel({ device, dispatch }: ConfigPanelProps) {
-  const config = getDeviceConfig(device.type)
-
-  const update = (changes: Parameters<typeof dispatch>[0] extends { type: 'UPDATE_DEVICE'; changes: infer C } ? C : never) => {
+  const update = (changes: Partial<Pick<Device, 'label' | 'ip' | 'notes' | 'type'>>) => {
     dispatch({ type: 'UPDATE_DEVICE', id: device.id, changes })
   }
 

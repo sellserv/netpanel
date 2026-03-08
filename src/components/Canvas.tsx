@@ -1,7 +1,7 @@
 import { useRef, useCallback, useEffect, useState } from 'react'
 import type { DeviceType, TopologyState, ViewBox, PortPosition } from '../types'
 import type { Action } from '../state'
-import { DEVICE_CONFIGS, DEVICE_WIDTH, DEVICE_HEIGHT } from '../constants'
+import { DEVICE_CONFIGS, DEVICE_WIDTH, DEVICE_HEIGHT, generateId } from '../constants'
 import Grid from './Grid'
 import DeviceNode from './DeviceNode'
 import ZoneNode from './ZoneNode'
@@ -61,7 +61,7 @@ export default function Canvas({ state, dispatch, children, dragConn, onPortDrag
     dispatch({
       type: 'ADD_DEVICE',
       device: {
-        id: crypto.randomUUID(),
+        id: generateId(),
         type: deviceType as DeviceType,
         label: config?.label ?? 'Device',
         x: pos.x - DEVICE_WIDTH / 2,
@@ -154,7 +154,7 @@ export default function Canvas({ state, dispatch, children, dragConn, onPortDrag
         })
 
         const padding = 20
-        const zoneId = crypto.randomUUID()
+        const zoneId = generateId()
         const zone = {
           id: zoneId,
           label: 'New Zone',

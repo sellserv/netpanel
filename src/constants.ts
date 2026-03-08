@@ -1,4 +1,4 @@
-import { DeviceTypeConfig } from './types'
+import type { DeviceTypeConfig } from './types'
 
 export const DEVICE_WIDTH = 80
 export const DEVICE_HEIGHT = 80
@@ -25,3 +25,8 @@ export const getDeviceConfig = (type: string): DeviceTypeConfig =>
   DEVICE_CONFIGS.find(c => c.type === type) ?? DEVICE_CONFIGS[DEVICE_CONFIGS.length - 1]
 
 export const DEFAULT_VIEWBOX = { x: -500, y: -300, width: 1600, height: 900 }
+
+export const generateId = (): string =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2) + Date.now().toString(36)
