@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTopology } from './state'
 import type { PortPosition } from './types'
+import { generateId } from './constants'
 import Canvas from './components/Canvas'
 import Sidebar from './components/Sidebar'
 import ConfigPanel from './components/ConfigPanel'
@@ -16,7 +17,29 @@ interface DragConnection {
 }
 
 export default function App() {
-  const { state, dispatch } = useTopology()
+  const { state, dispatch, currentTopologyId, topologies, loading, switchTopology, createNewTopology, deleteCurrentTopology, refreshTopologies } = useTopology()
+  const handleExport = useCallback(() => {
+    if (!currentTopologyId) return
+    window.open(`/api/topologies/${currentTopologyId}/export`, '_blank')
+  }, [currentTopologyId])
+
+  const handleImport = useCallback(() => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json'
+    input.onchange = async () => {
+      const file = input.files?.[0]
+      if (!file) return
+      const text = await file.text()
+      const data = JSON.parse(text)
+      const api = await import('./api')
+      const created = await api.importTopology({ name: data.name || file.name, state: data.state })
+      await refreshTopologies()
+      await switchTopology(created.id)
+    }
+    input.click()
+  }, [switchTopology, refreshTopologies])
+
   const [dragConn, setDragConn] = useState<DragConnection | null>(null)
 
   const selectedDevice = state.selectionType === 'device' && state.selectedIds.length === 1
@@ -59,7 +82,7 @@ export default function App() {
       dispatch({
         type: 'ADD_CONNECTION',
         connection: {
-          id: crypto.randomUUID(),
+          id: generateId(),
           sourceDeviceId: dragConn.sourceDeviceId,
           targetDeviceId,
           sourcePort: dragConn.sourcePort,
@@ -74,9 +97,26 @@ export default function App() {
     setDragConn(null)
   }, [])
 
+  if (loading) {
+    return (
+      <div className="h-screen w-screen bg-zinc-900 flex items-center justify-center text-zinc-400">
+        Loading...
+      </div>
+    )
+  }
+
   return (
     <div className="h-screen w-screen bg-zinc-900 text-zinc-100 flex overflow-hidden">
-      <Sidebar onDragStart={() => {}} />
+      <Sidebar
+        onDragStart={() => {}}
+        topologies={topologies}
+        currentTopologyId={currentTopologyId}
+        onSwitchTopology={switchTopology}
+        onNewTopology={createNewTopology}
+        onDeleteTopology={deleteCurrentTopology}
+        onExport={handleExport}
+        onImport={handleImport}
+      />
       <Canvas
         state={state}
         dispatch={dispatch}
