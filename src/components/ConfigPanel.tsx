@@ -22,7 +22,7 @@ export default function ConfigPanel({ device, dispatch }: ConfigPanelProps) {
           Properties
         </h2>
         <button
-          onClick={() => dispatch({ type: 'SELECT_DEVICE', id: null })}
+          onClick={() => dispatch({ type: 'CLEAR_SELECTION' })}
           className="text-zinc-500 hover:text-zinc-300"
         >
           <X size={16} />

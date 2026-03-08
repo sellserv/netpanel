@@ -4,6 +4,7 @@ import type { PortPosition } from './types'
 import Canvas from './components/Canvas'
 import Sidebar from './components/Sidebar'
 import ConfigPanel from './components/ConfigPanel'
+import ZoneConfigPanel from './components/ZoneConfigPanel'
 
 interface DragConnection {
   sourceDeviceId: string
@@ -16,21 +17,34 @@ interface DragConnection {
 
 export default function App() {
   const { state, dispatch } = useTopology()
-  const selectedDevice = state.devices.find(d => d.id === state.selectedDeviceId)
   const [dragConn, setDragConn] = useState<DragConnection | null>(null)
+
+  const selectedDevice = state.selectionType === 'device' && state.selectedIds.length === 1
+    ? state.devices.find(d => d.id === state.selectedIds[0])
+    : null
+
+  const selectedZone = state.selectionType === 'zone' && state.selectedIds.length === 1
+    ? state.zones.find(z => z.id === state.selectedIds[0])
+    : null
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.key === 'Delete' || e.key === 'Backspace') && state.selectedDeviceId) {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
         const tag = (e.target as HTMLElement).tagName
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+        if (state.selectedIds.length === 0) return
         e.preventDefault()
-        dispatch({ type: 'DELETE_DEVICE', id: state.selectedDeviceId })
+
+        if (state.selectionType === 'zone') {
+          state.selectedIds.forEach(id => dispatch({ type: 'DELETE_ZONE', id }))
+        } else {
+          state.selectedIds.forEach(id => dispatch({ type: 'DELETE_DEVICE', id }))
+        }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [state.selectedDeviceId, dispatch])
+  }, [state.selectedIds, state.selectionType, dispatch])
 
   const onPortDragStart = useCallback((deviceId: string, port: PortPosition, x: number, y: number) => {
     setDragConn({ sourceDeviceId: deviceId, sourcePort: port, sourceX: x, sourceY: y, mouseX: x, mouseY: y })
@@ -73,6 +87,7 @@ export default function App() {
         onPortDragCancel={onPortDragCancel}
       />
       {selectedDevice && <ConfigPanel device={selectedDevice} dispatch={dispatch} />}
+      {selectedZone && <ZoneConfigPanel zone={selectedZone} dispatch={dispatch} />}
     </div>
   )
 }
