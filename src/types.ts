@@ -32,6 +32,17 @@ export interface Connection {
   targetPort: PortPosition
 }
 
+export interface Zone {
+  id: string
+  label: string
+  color: string
+  x: number
+  y: number
+  width: number
+  height: number
+  deviceIds: string[]
+}
+
 export interface ViewBox {
   x: number
   y: number
@@ -39,10 +50,14 @@ export interface ViewBox {
   height: number
 }
 
+export type SelectionType = 'device' | 'zone'
+
 export interface TopologyState {
   devices: Device[]
   connections: Connection[]
-  selectedDeviceId: string | null
+  zones: Zone[]
+  selectedIds: string[]
+  selectionType: SelectionType | null
   viewBox: ViewBox
 }
 
