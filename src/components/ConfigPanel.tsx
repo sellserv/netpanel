@@ -1,7 +1,7 @@
 import type { Device, HealthCheck, HealthStatus, ApiPreset } from '../types'
 import { DEVICE_CONFIGS } from '../constants'
 import type { Action } from '../state'
-import { X } from 'lucide-react'
+import { X, Terminal, Play, Square, RotateCcw } from 'lucide-react'
 
 const PRESET_DEFAULTS: Record<ApiPreset, { label: string; defaultPath: (ip: string) => string; needsToken: boolean }> = {
   proxmox: { label: 'Proxmox', defaultPath: (ip) => `https://${ip}:8006/api2/json/nodes`, needsToken: true },
@@ -13,9 +13,11 @@ const PRESET_DEFAULTS: Record<ApiPreset, { label: string; defaultPath: (ip: stri
 const METRIC_LABELS: Record<string, string> = {
   cpuPercent: 'CPU',
   ramPercent: 'RAM',
+  diskPercent: 'Disk',
   uptime: 'Uptime',
   nodeCount: 'Nodes',
   version: 'Version',
+  vmStatus: 'Status',
   containersRunning: 'Running',
   containersTotal: 'Total Containers',
   images: 'Images',
@@ -34,7 +36,7 @@ function formatUptime(seconds: number): string {
 
 function formatMetricValue(key: string, value: string | number | boolean): string {
   if (key === 'uptime' && typeof value === 'number') return formatUptime(value)
-  if ((key === 'cpuPercent' || key === 'ramPercent') && typeof value === 'number') return `${value}%`
+  if ((key === 'cpuPercent' || key === 'ramPercent' || key === 'diskPercent') && typeof value === 'number') return `${value}%`
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
   return String(value)
 }
@@ -43,10 +45,13 @@ interface ConfigPanelProps {
   device: Device
   dispatch: React.Dispatch<Action>
   healthStatus?: HealthStatus
+  allDevices: Device[]
+  onSshConnect: (host: string, label: string) => void
+  onVmAction: (action: 'start' | 'shutdown' | 'reboot', device: Device) => void
 }
 
-export default function ConfigPanel({ device, dispatch, healthStatus }: ConfigPanelProps) {
-  const update = (changes: Partial<Pick<Device, 'label' | 'ip' | 'notes' | 'type' | 'healthCheck'>>) => {
+export default function ConfigPanel({ device, dispatch, healthStatus, allDevices, onSshConnect, onVmAction }: ConfigPanelProps) {
+  const update = (changes: Partial<Pick<Device, 'label' | 'ip' | 'notes' | 'type' | 'healthCheck' | 'proxmoxVm'>>) => {
     dispatch({ type: 'UPDATE_DEVICE', id: device.id, changes })
   }
 
@@ -257,8 +262,10 @@ export default function ConfigPanel({ device, dispatch, healthStatus }: ConfigPa
                 <div key={key} className="flex items-center justify-between text-sm">
                   <span className="text-zinc-400">{METRIC_LABELS[key] || key}</span>
                   <span className={
-                    key === 'cpuPercent' || key === 'ramPercent'
+                    key === 'cpuPercent' || key === 'ramPercent' || key === 'diskPercent'
                       ? (value as number) > 90 ? 'text-red-400' : (value as number) > 70 ? 'text-yellow-400' : 'text-emerald-400'
+                      : key === 'vmStatus'
+                      ? value === 'running' ? 'text-emerald-400' : 'text-red-400'
                       : 'text-zinc-200'
                   }>
                     {formatMetricValue(key, value)}
@@ -266,6 +273,134 @@ export default function ConfigPanel({ device, dispatch, healthStatus }: ConfigPa
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {(() => {
+          const proxmoxHosts = allDevices.filter(d => d.healthCheck?.type === 'api' && d.healthCheck?.apiPreset === 'proxmox' && d.id !== device.id)
+          const showVmSection = device.proxmoxVm || proxmoxHosts.length > 0
+
+          if (!showVmSection) return null
+
+          const vm = device.proxmoxVm
+
+          return (
+            <div className="pt-2 border-t border-zinc-700/50">
+              <label className="block text-xs text-zinc-500 mb-2">Proxmox VM Link</label>
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">Proxmox Host</label>
+                  <select
+                    value={vm?.host || ''}
+                    onChange={e => {
+                      const hostDevice = allDevices.find(d => d.ip === e.target.value)
+                      if (e.target.value && hostDevice) {
+                        update({
+                          proxmoxVm: {
+                            host: e.target.value,
+                            node: vm?.node || '',
+                            vmid: vm?.vmid || 0,
+                            type: vm?.type || 'qemu',
+                          },
+                          healthCheck: {
+                            type: 'api',
+                            apiPreset: 'proxmox',
+                            apiToken: hostDevice.healthCheck?.apiToken,
+                            interval: device.healthCheck?.interval || 60,
+                          },
+                        })
+                      } else {
+                        update({ proxmoxVm: undefined })
+                      }
+                    }}
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-sm text-zinc-200 focus:outline-none focus:border-zinc-500"
+                  >
+                    <option value="">None</option>
+                    {proxmoxHosts.map(h => (
+                      <option key={h.id} value={h.ip}>{h.label} ({h.ip})</option>
+                    ))}
+                  </select>
+                </div>
+
+                {vm && (
+                  <>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <label className="block text-xs text-zinc-500 mb-1">VMID</label>
+                        <input
+                          type="number"
+                          value={vm.vmid || ''}
+                          onChange={e => update({ proxmoxVm: { ...vm, vmid: parseInt(e.target.value) || 0 } })}
+                          placeholder="100"
+                          className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
+                        />
+                      </div>
+                      <div className="w-24">
+                        <label className="block text-xs text-zinc-500 mb-1">Type</label>
+                        <select
+                          value={vm.type}
+                          onChange={e => update({ proxmoxVm: { ...vm, type: e.target.value as 'qemu' | 'lxc' } })}
+                          className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-sm text-zinc-200 focus:outline-none focus:border-zinc-500"
+                        >
+                          <option value="qemu">VM</option>
+                          <option value="lxc">LXC</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-zinc-500 mb-1">Node</label>
+                      <input
+                        type="text"
+                        value={vm.node}
+                        onChange={e => update({ proxmoxVm: { ...vm, node: e.target.value } })}
+                        placeholder="pve"
+                        className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
+                      />
+                    </div>
+
+                    {vm.vmid > 0 && vm.node && (
+                      <div>
+                        <label className="block text-xs text-zinc-500 mb-1">Power</label>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => onVmAction('start', device)}
+                            disabled={healthStatus?.metrics?.vmStatus === 'running'}
+                            className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-emerald-900/30 text-emerald-400 hover:bg-emerald-900/50 disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <Play size={12} /> Start
+                          </button>
+                          <button
+                            onClick={() => onVmAction('shutdown', device)}
+                            disabled={healthStatus?.metrics?.vmStatus !== 'running'}
+                            className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-red-900/30 text-red-400 hover:bg-red-900/50 disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <Square size={12} /> Shutdown
+                          </button>
+                          <button
+                            onClick={() => onVmAction('reboot', device)}
+                            disabled={healthStatus?.metrics?.vmStatus !== 'running'}
+                            className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-yellow-900/30 text-yellow-400 hover:bg-yellow-900/50 disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <RotateCcw size={12} /> Reboot
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )
+        })()}
+
+        {device.ip && (
+          <div className="pt-2 border-t border-zinc-700/50">
+            <button
+              onClick={() => onSshConnect(device.ip, device.label)}
+              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm bg-zinc-700/50 text-zinc-300 rounded hover:bg-zinc-700 transition-colors"
+            >
+              <Terminal size={14} /> SSH Terminal
+            </button>
           </div>
         )}
 
