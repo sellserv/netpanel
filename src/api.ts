@@ -71,3 +71,7 @@ export async function importTopology(data: { name: string; state: object }): Pro
     body: JSON.stringify(data),
   })
 }
+
+export async function fetchHealthResults(topologyId: string): Promise<import('./types').HealthStatus[]> {
+  return request(`/topologies/${topologyId}/health`)
+}
