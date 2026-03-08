@@ -104,6 +104,18 @@ export default function DeviceNode({ device, isSelected, viewBox, dispatch, svgR
       >
         {device.label}
       </text>
+      {device.ip && (
+        <text
+          x={device.x + DEVICE_WIDTH / 2}
+          y={device.y + DEVICE_HEIGHT + 10}
+          textAnchor="middle"
+          fill="#71717a"
+          fontSize="8"
+          fontFamily="system-ui, sans-serif"
+        >
+          {device.ip}
+        </text>
+      )}
       {(hovered || isDraggingConnection) && (['top', 'right', 'bottom', 'left'] as PortPosition[]).map(port => {
         const pos = getPortPos(port)
         return (

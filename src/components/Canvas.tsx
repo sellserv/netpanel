@@ -149,6 +149,7 @@ export default function Canvas({ state, dispatch, children, dragConn, onPortDrag
       onMouseLeave={handleMouseUp}
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDrop}
+      onContextMenu={(e) => e.preventDefault()}
       style={{ cursor: isPanning || spaceHeld ? 'grabbing' : 'default' }}
     >
       <Grid />
