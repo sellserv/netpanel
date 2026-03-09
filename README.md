@@ -19,21 +19,40 @@ A network topology builder and monitoring dashboard. Design network layouts visu
 - **Import / Export** — Save and load topologies as JSON
 - **Persistent Storage** — SQLite-backed API with auto-save
 
-## Quick Start with Docker Compose
+## Quick Start
 
 ### Prerequisites
 
-- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
+- Ubuntu (or similar) server
+- Node.js 22+
 
-### Run
+### Deploy
 
 ```bash
 git clone https://github.com/sellserv/netpanel.git
 cd netpanel
-docker compose up -d
+./setup.sh
 ```
 
-The app will be available at **http://localhost:3001**.
+The setup script installs Node.js (if needed), builds the app, and creates a systemd service. The app will be available at **http://your-server:3001**.
+
+### Service Management
+
+```bash
+sudo systemctl status netpanel     # Check status
+sudo systemctl restart netpanel    # Restart
+sudo journalctl -u netpanel -f     # View logs
+```
+
+### Updating
+
+```bash
+cd ~/netpanel
+git pull
+npm ci
+npm run build
+sudo systemctl restart netpanel
+```
 
 ### Configuration
 
@@ -41,58 +60,17 @@ The app will be available at **http://localhost:3001**.
 |----------|---------|-------------|
 | `PORT`   | `3001`  | Server listen port |
 
-To change the exposed port, edit `docker-compose.yml`:
-
-```yaml
-services:
-  panel:
-    build: .
-    ports:
-      - "8080:3001"   # access on port 8080 instead
-    volumes:
-      - panel-data:/app/data
-    restart: unless-stopped
-
-volumes:
-  panel-data:
-```
-
 ### Data Persistence
 
-Topology data is stored in a SQLite database inside the container at `/app/data/`. The `panel-data` Docker volume keeps this data intact across container restarts and rebuilds.
+Topology data is stored in a SQLite database at `data/panel.db`.
 
-To back up the database:
-
-```bash
-docker compose cp panel:/app/data/panel.db ./panel-backup.db
-```
-
-### Rebuilding
-
-After pulling updates:
+To back up:
 
 ```bash
-docker compose up -d --build
-```
-
-### Stopping
-
-```bash
-docker compose down
-```
-
-To remove the data volume as well:
-
-```bash
-docker compose down -v
+cp data/panel.db ~/panel-backup.db
 ```
 
 ## Development
-
-### Prerequisites
-
-- Node.js 22+
-- npm
 
 ### Setup
 
@@ -116,4 +94,4 @@ This compiles the frontend and starts the production server on port 3001.
 
 - **Frontend:** React, TypeScript, Tailwind CSS, Vite, xterm.js
 - **Backend:** Express, better-sqlite3, WebSocket (ws), ssh2
-- **Runtime:** Node.js 22 (Alpine)
+- **Runtime:** Node.js 22
