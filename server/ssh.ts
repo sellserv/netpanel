@@ -73,7 +73,10 @@ export function setupSshWebSocket() {
             host,
             port: port || 22,
             username,
-            readyTimeout: 10000,
+            readyTimeout: 20000,
+            debug: (msg: string) => {
+              console.log(`[SSH ${host}] ${msg}`)
+            },
           }
 
           if (privateKey) {
