@@ -138,4 +138,8 @@ export const deleteHealthResult = db.prepare<[string, string]>(
   'DELETE FROM health_results WHERE device_id = ? AND topology_id = ?'
 )
 
+export const listAllTopologyStates = db.prepare<[], { topology_id: string; state: string }>(
+  'SELECT topology_id, state FROM topology_state'
+)
+
 export default db

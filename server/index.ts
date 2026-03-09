@@ -18,6 +18,7 @@ import {
   deleteTopology,
   getHealthResults,
   deleteHealthResultsForTopology,
+  listAllTopologyStates,
 } from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -173,6 +174,16 @@ const server = createServer(app)
 setupWebSocket(server)
 setupSshWebSocket(server)
 setResultCallback(broadcastHealthResult)
+
+// Resume health checks for all topologies on startup
+for (const row of listAllTopologyStates.all()) {
+  try {
+    const state = JSON.parse(row.state)
+    if (state.devices) {
+      syncChecks(row.topology_id, state.devices)
+    }
+  } catch {}
+}
 
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`)

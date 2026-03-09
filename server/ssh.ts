@@ -75,7 +75,12 @@ export function setupSshWebSocket(server: Server) {
             connectConfig.privateKey = privateKey
           } else if (password) {
             connectConfig.password = password
+            connectConfig.tryKeyboard = true
           }
+
+          ssh.on('keyboard-interactive', (_name, _instructions, _instructionsLang, prompts, finish) => {
+            finish(prompts.map(() => password || ''))
+          })
 
           ssh.connect(connectConfig as Parameters<SSHClient['connect']>[0])
         } else if (msg.type === 'disconnect') {
