@@ -4,3 +4,12 @@ html, body, #root {
   overflow: hidden;
   height: 100%;
 }
+
+@keyframes connection-flow {
+  from { stroke-dashoffset: 16; }
+  to { stroke-dashoffset: 0; }
+}
+
+.connection-flow {
+  animation: connection-flow 0.6s linear infinite;
+}

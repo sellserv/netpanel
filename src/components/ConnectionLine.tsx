@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import type { Device, Connection, PortPosition } from '../types'
 import { DEVICE_WIDTH, DEVICE_HEIGHT } from '../constants'
+import type { Action } from '../state'
 
 export const getPortPosition = (device: Device, port: PortPosition) => {
   const cx = device.x + DEVICE_WIDTH / 2
@@ -27,9 +29,12 @@ function bezierPath(x1: number, y1: number, p1: PortPosition, x2: number, y2: nu
 interface ConnectionLineProps {
   connection: Connection
   devices: Device[]
+  dispatch: React.Dispatch<Action>
+  bothUp?: boolean
 }
 
-export default function ConnectionLine({ connection, devices }: ConnectionLineProps) {
+export default function ConnectionLine({ connection, devices, dispatch, bothUp }: ConnectionLineProps) {
+  const [hovered, setHovered] = useState(false)
   const source = devices.find(d => d.id === connection.sourceDeviceId)
   const target = devices.find(d => d.id === connection.targetDeviceId)
   if (!source || !target) return null
@@ -39,13 +44,47 @@ export default function ConnectionLine({ connection, devices }: ConnectionLinePr
   const d = bezierPath(p1.x, p1.y, connection.sourcePort, p2.x, p2.y, connection.targetPort)
 
   return (
-    <path
-      d={d}
-      fill="none"
-      stroke="#52525b"
-      strokeWidth={2}
-      strokeLinecap="round"
-    />
+    <g
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={(e) => {
+        e.stopPropagation()
+        dispatch({ type: 'DELETE_CONNECTION', id: connection.id })
+      }}
+      style={{ cursor: hovered ? 'pointer' : 'default' }}
+    >
+      {/* Invisible wider hit area for easier clicking */}
+      <path
+        d={d}
+        fill="none"
+        stroke="transparent"
+        strokeWidth={12}
+      />
+      {/* Base line */}
+      <path
+        d={d}
+        fill="none"
+        stroke={hovered ? '#ef4444' : '#52525b'}
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+      {/* Animated flow effect when both devices are up */}
+      {bothUp && (
+        <path
+          d={d}
+          fill="none"
+          stroke="#22c55e"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeDasharray="4 12"
+          className="connection-flow"
+        />
+      )}
+      {/* Delete hint on hover */}
+      {hovered && (
+        <title>Click to remove connection</title>
+      )}
+    </g>
   )
 }
 

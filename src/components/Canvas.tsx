@@ -95,10 +95,18 @@ export default function Canvas({ state, dispatch, children, dragConn, onPortDrag
   }, [dispatch, screenToSVG])
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    const isGridClick = e.button === 0 && !spaceHeld && (e.target === svgRef.current || (e.target as SVGElement).closest('rect[fill="url(#grid)"]'))
+    const isGridClick = e.button === 0 && (e.target === svgRef.current || (e.target as SVGElement).closest('rect[fill="url(#grid)"]'))
 
-    if (isGridClick) {
+    if (isGridClick && e.shiftKey && !spaceHeld) {
       startSelectionRect(e)
+      return
+    }
+
+    if (isGridClick && !spaceHeld) {
+      dispatch({ type: 'CLEAR_SELECTION' })
+      e.preventDefault()
+      setIsPanning(true)
+      panStart.current = { x: e.clientX, y: e.clientY, vb: { ...viewBox } }
       return
     }
 
@@ -107,7 +115,7 @@ export default function Canvas({ state, dispatch, children, dragConn, onPortDrag
       setIsPanning(true)
       panStart.current = { x: e.clientX, y: e.clientY, vb: { ...viewBox } }
     }
-  }, [spaceHeld, viewBox, startSelectionRect])
+  }, [spaceHeld, viewBox, startSelectionRect, dispatch])
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (isPanning && panStart.current) {
@@ -232,20 +240,29 @@ export default function Canvas({ state, dispatch, children, dragConn, onPortDrag
           key={zone.id}
           zone={zone}
           isSelected={state.selectionType === 'zone' && state.selectedIds.includes(zone.id)}
-          viewBox={viewBox}
           dispatch={dispatch}
           svgRef={svgRef}
         />
       ))}
-      {state.connections.map(conn => (
-        <ConnectionLine key={conn.id} connection={conn} devices={state.devices} />
-      ))}
+      {state.connections.map(conn => {
+        const sourceUp = healthStatuses?.get(conn.sourceDeviceId)?.status === 'up'
+        const targetUp = healthStatuses?.get(conn.targetDeviceId)?.status === 'up'
+        return (
+          <ConnectionLine
+            key={conn.id}
+            connection={conn}
+            devices={state.devices}
+            dispatch={dispatch}
+            bothUp={sourceUp && targetUp}
+          />
+        )
+      })}
+
       {state.devices.map(device => (
         <DeviceNode
           key={device.id}
           device={device}
           isSelected={state.selectionType === 'device' && state.selectedIds.includes(device.id)}
-          viewBox={viewBox}
           dispatch={dispatch}
           svgRef={svgRef}
           onPortDragStart={onPortDragStart}

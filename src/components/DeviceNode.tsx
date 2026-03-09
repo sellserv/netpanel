@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import type { Device, ViewBox, PortPosition } from '../types'
+import type { Device, PortPosition } from '../types'
 import { DEVICE_WIDTH, DEVICE_HEIGHT, PORT_RADIUS, getDeviceConfig } from '../constants'
 import type { Action } from '../state'
 import DeviceIcon from './DeviceIcon'
@@ -7,7 +7,6 @@ import DeviceIcon from './DeviceIcon'
 interface DeviceNodeProps {
   device: Device
   isSelected: boolean
-  viewBox: ViewBox
   dispatch: React.Dispatch<Action>
   svgRef: React.RefObject<SVGSVGElement | null>
   onPortDragStart: (deviceId: string, port: PortPosition, x: number, y: number) => void
@@ -16,7 +15,7 @@ interface DeviceNodeProps {
   healthStatus?: 'up' | 'down' | 'unknown'
 }
 
-export default function DeviceNode({ device, isSelected, viewBox, dispatch, svgRef, onPortDragStart, onPortDragEnd, isDraggingConnection, healthStatus }: DeviceNodeProps) {
+export default function DeviceNode({ device, isSelected, dispatch, svgRef, onPortDragStart, onPortDragEnd, isDraggingConnection, healthStatus }: DeviceNodeProps) {
   const config = getDeviceConfig(device.type)
   const dragging = useRef(false)
   const offset = useRef({ x: 0, y: 0 })
@@ -25,12 +24,14 @@ export default function DeviceNode({ device, isSelected, viewBox, dispatch, svgR
   const screenToSVG = useCallback((clientX: number, clientY: number) => {
     const svg = svgRef.current
     if (!svg) return { x: 0, y: 0 }
-    const rect = svg.getBoundingClientRect()
-    return {
-      x: viewBox.x + (clientX - rect.left) / rect.width * viewBox.width,
-      y: viewBox.y + (clientY - rect.top) / rect.height * viewBox.height,
-    }
-  }, [viewBox, svgRef])
+    const pt = svg.createSVGPoint()
+    pt.x = clientX
+    pt.y = clientY
+    const ctm = svg.getScreenCTM()
+    if (!ctm) return { x: 0, y: 0 }
+    const svgPt = pt.matrixTransform(ctm.inverse())
+    return { x: svgPt.x, y: svgPt.y }
+  }, [svgRef])
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return
@@ -54,7 +55,7 @@ export default function DeviceNode({ device, isSelected, viewBox, dispatch, svgR
 
     window.addEventListener('mousemove', handleMove)
     window.addEventListener('mouseup', handleUp)
-  }, [device.id, device.x, device.y, screenToSVG, dispatch])
+  }, [device.id, screenToSVG, dispatch])
 
   const getPortPos = (port: PortPosition) => {
     const cx = device.x + DEVICE_WIDTH / 2

@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react'
-import type { Zone, ViewBox } from '../types'
+import type { Zone } from '../types'
 import type { Action } from '../state'
 
 const MIN_SIZE = 60
@@ -8,26 +8,27 @@ const HANDLE_SIZE = 8
 interface ZoneNodeProps {
   zone: Zone
   isSelected: boolean
-  viewBox: ViewBox
   dispatch: React.Dispatch<Action>
   svgRef: React.RefObject<SVGSVGElement | null>
 }
 
 type Corner = 'tl' | 'tr' | 'bl' | 'br'
 
-export default function ZoneNode({ zone, isSelected, viewBox, dispatch, svgRef }: ZoneNodeProps) {
+export default function ZoneNode({ zone, isSelected, dispatch, svgRef }: ZoneNodeProps) {
   const dragging = useRef(false)
   const dragStart = useRef({ x: 0, y: 0 })
 
   const screenToSVG = useCallback((clientX: number, clientY: number) => {
     const svg = svgRef.current
     if (!svg) return { x: 0, y: 0 }
-    const rect = svg.getBoundingClientRect()
-    return {
-      x: viewBox.x + (clientX - rect.left) / rect.width * viewBox.width,
-      y: viewBox.y + (clientY - rect.top) / rect.height * viewBox.height,
-    }
-  }, [viewBox, svgRef])
+    const pt = svg.createSVGPoint()
+    pt.x = clientX
+    pt.y = clientY
+    const ctm = svg.getScreenCTM()
+    if (!ctm) return { x: 0, y: 0 }
+    const svgPt = pt.matrixTransform(ctm.inverse())
+    return { x: svgPt.x, y: svgPt.y }
+  }, [svgRef])
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return
