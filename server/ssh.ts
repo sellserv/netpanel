@@ -1,12 +1,11 @@
 import { WebSocketServer } from 'ws'
-import type { Server } from 'http'
 import type { WebSocket } from 'ws'
 import { Client as SSHClient } from 'ssh2'
 
-export function setupSshWebSocket(server: Server) {
-  const wss = new WebSocketServer({ server, path: '/ws/ssh' })
+export const sshWss = new WebSocketServer({ noServer: true })
 
-  wss.on('connection', (ws: WebSocket) => {
+export function setupSshWebSocket() {
+  sshWss.on('connection', (ws: WebSocket) => {
     let ssh: SSHClient | null = null
 
     ws.on('message', (raw) => {

@@ -4,10 +4,10 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import crypto from 'crypto'
 import { createServer } from 'http'
-import { setupWebSocket, broadcastHealthResult } from './ws.js'
+import { setupWebSocket, broadcastHealthResult, healthWss } from './ws.js'
 import { setResultCallback, syncChecks, stopAllChecksForTopology } from './monitor.js'
 import { discoverVms, vmAction } from './proxmox.js'
-import { setupSshWebSocket } from './ssh.js'
+import { setupSshWebSocket, sshWss } from './ssh.js'
 import {
   listTopologies,
   getTopology,
@@ -171,9 +171,20 @@ app.get('{*path}', (_req: Request, res: Response) => {
 })
 
 const server = createServer(app)
-setupWebSocket(server)
-setupSshWebSocket(server)
+setupWebSocket()
+setupSshWebSocket()
 setResultCallback(broadcastHealthResult)
+
+server.on('upgrade', (req, socket, head) => {
+  const { pathname } = new URL(req.url || '/', `http://${req.headers.host}`)
+  if (pathname === '/ws/ssh') {
+    sshWss.handleUpgrade(req, socket, head, (ws) => sshWss.emit('connection', ws, req))
+  } else if (pathname === '/ws') {
+    healthWss.handleUpgrade(req, socket, head, (ws) => healthWss.emit('connection', ws, req))
+  } else {
+    socket.destroy()
+  }
+})
 
 // Resume health checks for all topologies on startup
 for (const row of listAllTopologyStates.all()) {

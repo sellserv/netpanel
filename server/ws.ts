@@ -1,5 +1,4 @@
 import { WebSocketServer } from 'ws'
-import type { Server } from 'http'
 import type { WebSocket } from 'ws'
 import type { CheckResult } from './monitor.js'
 
@@ -10,10 +9,10 @@ interface SubscribedClient {
 
 const clients = new Set<SubscribedClient>()
 
-export function setupWebSocket(server: Server) {
-  const wss = new WebSocketServer({ server, path: '/ws' })
+export const healthWss = new WebSocketServer({ noServer: true })
 
-  wss.on('connection', (ws) => {
+export function setupWebSocket() {
+  healthWss.on('connection', (ws) => {
     let client: SubscribedClient | null = null
 
     ws.on('message', (raw) => {
