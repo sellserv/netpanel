@@ -39,7 +39,9 @@ export function setupSshWebSocket(server: Server) {
               })
 
               stream.on('close', () => {
-                ws.send(JSON.stringify({ type: 'closed' }))
+                if (ws.readyState === ws.OPEN) {
+                  ws.send(JSON.stringify({ type: 'closed' }))
+                }
                 ssh?.end()
               })
 
@@ -57,11 +59,15 @@ export function setupSshWebSocket(server: Server) {
           })
 
           ssh.on('error', (err) => {
-            ws.send(JSON.stringify({ type: 'error', message: err.message }))
+            if (ws.readyState === ws.OPEN) {
+              ws.send(JSON.stringify({ type: 'error', message: err.message }))
+            }
           })
 
           ssh.on('close', () => {
-            ws.send(JSON.stringify({ type: 'closed' }))
+            if (ws.readyState === ws.OPEN) {
+              ws.send(JSON.stringify({ type: 'closed' }))
+            }
           })
 
           const connectConfig: Record<string, unknown> = {

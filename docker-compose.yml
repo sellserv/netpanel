@@ -1,8 +1,7 @@
 services:
   panel:
     build: .
-    ports:
-      - "3001:3001"
+    network_mode: host
     volumes:
       - panel-data:/app/data
     restart: unless-stopped
