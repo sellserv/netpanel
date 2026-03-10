@@ -4,8 +4,8 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import crypto from 'crypto'
 import { createServer } from 'http'
-import { setupWebSocket, broadcastHealthResult, healthWss } from './ws.js'
-import { setResultCallback, syncChecks, stopAllChecksForTopology } from './monitor.js'
+import { setupWebSocket, broadcastHealthResult, broadcastHealthRemoval, healthWss } from './ws.js'
+import { setResultCallback, setRemovalCallback, syncChecks, stopAllChecksForTopology } from './monitor.js'
 import { discoverVms, vmAction } from './proxmox.js'
 import { setupSshWebSocket, sshWss } from './ssh.js'
 import {
@@ -174,6 +174,7 @@ const server = createServer(app)
 setupWebSocket()
 setupSshWebSocket()
 setResultCallback(broadcastHealthResult)
+setRemovalCallback(broadcastHealthRemoval)
 
 server.on('upgrade', (req, socket, head) => {
   const { pathname } = new URL(req.url || '/', `http://${req.headers.host}`)

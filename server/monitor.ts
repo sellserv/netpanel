@@ -1,6 +1,6 @@
 import net from 'net'
 import { exec } from 'child_process'
-import { upsertHealthResult } from './db.js'
+import { upsertHealthResult, deleteHealthResult } from './db.js'
 
 export type ApiPreset = 'proxmox' | 'truenas' | 'tailscale' | 'docker'
 
@@ -33,9 +33,11 @@ export interface CheckResult {
 }
 
 type ResultCallback = (result: CheckResult) => void
+type RemovalCallback = (topologyId: string, deviceId: string) => void
 
 const timers = new Map<string, ReturnType<typeof setInterval>>()
 let onResult: ResultCallback = () => {}
+let onRemoval: RemovalCallback = () => {}
 
 function timerKey(topologyId: string, deviceId: string): string {
   return `${topologyId}:${deviceId}`
@@ -43,6 +45,10 @@ function timerKey(topologyId: string, deviceId: string): string {
 
 export function setResultCallback(cb: ResultCallback) {
   onResult = cb
+}
+
+export function setRemovalCallback(cb: RemovalCallback) {
+  onRemoval = cb
 }
 
 async function checkHttp(target: string): Promise<{ status: 'up' | 'down'; latency: number; error?: string }> {
@@ -339,6 +345,8 @@ export function syncChecks(topologyId: string, devices: DeviceWithCheck[]) {
       const deviceId = key.slice(topologyId.length + 1)
       if (!activeDeviceIds.has(deviceId)) {
         stopCheck(topologyId, deviceId)
+        deleteHealthResult.run(deviceId, topologyId)
+        onRemoval(topologyId, deviceId)
       }
     }
   }

@@ -50,6 +50,12 @@ export function useHealthStatus(topologyId: string | null) {
             })
             return next
           })
+        } else if (msg.type === 'health_removed') {
+          setStatuses(prev => {
+            const next = new Map(prev)
+            next.delete(msg.deviceId)
+            return next
+          })
         }
       } catch {}
     }

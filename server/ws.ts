@@ -49,3 +49,13 @@ export function broadcastHealthResult(result: CheckResult) {
     }
   }
 }
+
+export function broadcastHealthRemoval(topologyId: string, deviceId: string) {
+  const payload = JSON.stringify({ type: 'health_removed', deviceId })
+
+  for (const client of clients) {
+    if (client.topologyId === topologyId && client.ws.readyState === client.ws.OPEN) {
+      client.ws.send(payload)
+    }
+  }
+}
